@@ -1,4 +1,62 @@
-
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tetris Neo Blast — 1 Menit</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cell:28px; --cols:10; --rows:20;
+    --bg-1:#050814; --bg-2:#071733;
+    --neon-1:#00eaff; --neon-2:#a000ff;
+  }
+  html,body{margin:0;height:100%;background:radial-gradient(circle at 10% 10%,#071124 0%,#020214 50%,#00060a 100%);
+  color:#e6eef8;font-family:'Inter',system-ui,Arial;-webkit-font-smoothing:antialiased;}
+  .wrap{display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px}
+  .board{display:grid;grid-template-columns:1fr 320px;gap:20px;max-width:1100px;width:100%}
+  .game{position:relative;padding:14px;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01));box-shadow:0 10px 40px rgba(0,0,0,0.6)}
+  h1{margin:0;font-size:18px;color:var(--neon-1);text-shadow:0 0 8px rgba(0,234,255,0.4)}
+  canvas#tetris{display:block;border-radius:10px;background:linear-gradient(180deg,#001022,#001428);border:3px solid rgba(0,234,255,0.1);box-shadow:inset 0 0 20px rgba(0,234,255,0.1)}
+  #particles{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;mix-blend-mode:screen}
+  .side{width:320px}
+  .panel{background:rgba(4,14,34,0.7);padding:12px;border-radius:10px;margin-bottom:12px;border:1px solid rgba(255,255,255,0.05)}
+  .small{font-size:13px;color:#9fc6ff}
+  .btn{background:linear-gradient(180deg,#07263b,#041827);border:1px solid rgba(255,255,255,0.05);color:#dff0ff;padding:9px 12px;border-radius:8px;cursor:pointer;font-weight:600;transition:0.1s}
+  .btn:active{transform:scale(0.97)}
+  footer{font-size:12px;color:#9fc6ff;text-align:center;margin-top:6px}
+  .overlay{position:absolute;inset:14px;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(3px)}
+  .overlay .box{background:rgba(6,10,20,0.9);padding:20px 24px;border-radius:10px;text-align:center;color:#dff5ff}
+  @media(max-width:820px){.board{grid-template-columns:1fr}.side{width:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="board">
+    <div class="game" id="game">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div>
+          <h1>Tetris Neo Blast</h1>
+          <div style="font-size:13px;color:#9fc6ff">Mode 1 Menit • Neon Style</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button id="btn-start" class="btn">Mulai</button>
+          <button id="btn-mute" class="btn">🔊 Musik</button>
+        </div>
+      </div>
+      <canvas id="tetris" width="280" height="560"></canvas>
+      <canvas id="particles"></canvas>
+      <div id="overlay" class="overlay">
+        <div class="box">
+          <h2 id="ov-title">Game Over</h2>
+          <p id="ov-msg">Skor akhir kamu.</p>
+          <button id="ov-restart" class="btn" style="margin-top:8px">Restart</button>
+        </div>
+      </div>
+      <div style="font-size:13px;color:#9fc6ff;margin-top:6px">← → Geser | ↑ Putar | ↓ Turun | Space Jatuh | P Pause</div>
+    </div>
+    <div class="side">
+      <div class="panel">
         <div style="display:flex;justify-content:space-between">
           <div><div class="small">Skor</div><div id="score">0</div></div>
           <div><div class="small">Level</div><div id="level">1</div></div>
