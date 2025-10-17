@@ -8,8 +8,6 @@
 :root{
   --cell:28px;--cols:10;--rows:20;
   --neon:#00eaff;
-  --bg1:#0b0f2a;
-  --bg2:#041024;
 }
 html,body{
   height:100%;margin:0;font-family:'Orbitron',system-ui,Arial;
@@ -92,7 +90,7 @@ footer{font-size:12px;color:#8fb4d9;margin-top:6px;text-align:center}
           </div>
         </div>
 
-        <div class="hint small">Kontrol: ← → (geser), ↑ (rotate), ↓ (soft drop), Space (hard drop), P (pause)</div>
+        <div class="hint small">Kontrol: ← → (geser), ↑ (rotate), ↓ (turun), Space (jatuh cepat), P (pause)</div>
       </div>
 
       <div class="side">
@@ -135,9 +133,12 @@ footer{font-size:12px;color:#8fb4d9;margin-top:6px;text-align:center}
 <script>
 const canvas=document.getElementById('tetris'),ctx=canvas.getContext('2d');
 const nextCanvas=document.getElementById('next'),nctx=nextCanvas.getContext('2d');
-const overlay=document.getElementById('overlay'),overlayTitle=document.getElementById('overlay-title'),
+const overlay=document.getElementById('overlay'),
+overlayTitle=document.getElementById('overlay-title'),
 overlayMsg=document.getElementById('overlay-msg');
-const overlayRestart=document.getElementById('overlay-restart'),overlayClose=document.getElementById('overlay-close');
+const overlayRestart=document.getElementById('overlay-restart'),
+overlayClose=document.getElementById('overlay-close');
+
 const scale=28,COLS=10,ROWS=20;
 const colors=[null,'#00ffff','#ff00ff','#ff9900','#ffff00','#00ff00','#ff0077','#00aaff'];
 const pieces='IOTSZJL';
@@ -159,8 +160,6 @@ function drawMatrix(matrix,offset,context,cellSize){
       if(val){
         context.fillStyle=colors[val];
         context.fillRect((x+offset.x)*cellSize,(y+offset.y)*cellSize,cellSize-1,cellSize-1);
-        context.strokeStyle='rgba(0,0,0,0.2)';
-        context.strokeRect((x+offset.x)*cellSize,(y+offset.y)*cellSize,cellSize-1,cellSize-1);
       }
     }
   }
@@ -187,6 +186,7 @@ function rotate(m,dir){
 function createPiece(t){return shapes[t].map(r=>r.slice());}
 const player={pos:{x:0,y:0},matrix:null};
 let nextPiece={matrix:createPiece(pieces[Math.floor(Math.random()*pieces.length)])};
+
 function showOverlay(t,m,showRestart=true){
   overlayTitle.textContent=t;overlayMsg.textContent=m;overlay.style.display='flex';
   overlayRestart.style.display=showRestart?'inline-block':'none';
@@ -212,6 +212,7 @@ function sweepLines(){
     updateStats();playClear(rowCount);
   }
 }
+
 const STORAGE_KEY='tetris_highscore_v2';
 let score=0,lines=0,level=1,highscore=0;
 function loadHighscore(){highscore=parseInt(localStorage.getItem(STORAGE_KEY)||'0');document.getElementById('highscore').innerText=highscore;}
@@ -222,13 +223,18 @@ function updateStats(){
   document.getElementById('lines').innerText=lines;
   if(score>highscore){highscore=score;saveHighscore();document.getElementById('highscore').innerText=highscore;}
 }
+
 let dropCounter=0,dropInterval=1000,lastTime=0,paused=false,running=false;
 function update(time=0){
   if(!running)return;
   if(paused){lastTime=time;requestAnimationFrame(update);return;}
   const delta=time-lastTime;lastTime=time;dropCounter+=delta;
   dropInterval=Math.max(100,1000-(level-1)*70);
-  if(dropCounter>dropInterval){player.pos.y++;if(collide(arena,player)){player.pos.y--;merge(arena,player);sweepLines();spawnNext();}dropCounter=0;}
+  if(dropCounter>dropInterval){
+    player.pos.y++;
+    if(collide(arena,player)){player.pos.y--;merge(arena,player);sweepLines();spawnNext();}
+    dropCounter=0;
+  }
   draw();requestAnimationFrame(update);
 }
 function draw(){
@@ -245,6 +251,7 @@ function startGame(){
   if(!running){running=true;requestAnimationFrame(update);}
 }
 function stopGame(){running=false;}
+
 // Controls
 function keyHandler(e){
   if(!running)return;
@@ -258,31 +265,36 @@ function keyHandler(e){
 }
 window.addEventListener('keydown',keyHandler);
 function togglePause(){paused=!paused;document.getElementById('btn-pause').innerText=paused?'Resume':'Pause';}
-['btn-left','btn-right','btn-rotate','btn-down','btn-drop'].forEach(id=>{
-  document.getElementById(id).addEventListener('click',()=>{
-    keyHandler({key:id.split('-')[1].replace('drop',' '),code:id==='btn-drop'?'Space':''});
-  });
-});
-document.getElementById('btn-pause').addEventListener('click',togglePause);
-document.getElementById('btn-restart').addEventListener('click',startGame);
-document.getElementById('btn-start').addEventListener('click',()=>{
+
+document.getElementById('btn-left').onclick=()=>keyHandler({key:'ArrowLeft'});
+document.getElementById('btn-right').onclick=()=>keyHandler({key:'ArrowRight'});
+document.getElementById('btn-rotate').onclick=()=>keyHandler({key:'ArrowUp'});
+document.getElementById('btn-down').onclick=()=>keyHandler({key:'ArrowDown'});
+document.getElementById('btn-drop').onclick=()=>keyHandler({code:'Space'});
+document.getElementById('btn-pause').onclick=togglePause;
+document.getElementById('btn-restart').onclick=startGame;
+document.getElementById('btn-start').onclick=()=>{
   document.getElementById('btn-start').style.display='none';
   startGame();playMusic();
-});
-overlayRestart.addEventListener('click',()=>{startGame();});
-overlayClose.addEventListener('click',()=>hideOverlay());
+};
+overlayRestart.onclick=()=>{startGame();};
+overlayClose.onclick=()=>hideOverlay();
 
 // Audio
 const AudioCtx=window.AudioContext||window.webkitAudioContext;
 let audioCtx=null,bgMusic=null;
 function ensureAudio(){if(!audioCtx){audioCtx=new AudioCtx();}}
-function playLock(){if(!audioCtx)return;const now=audioCtx.currentTime;
+function playLock(){
+  if(!audioCtx)return;
+  const now=audioCtx.currentTime;
   const osc=audioCtx.createOscillator();const gain=audioCtx.createGain();
   osc.type='sine';osc.frequency.setValueAtTime(220,now);
   gain.gain.setValueAtTime(0.1,now);gain.gain.exponentialRampToValueAtTime(0.001,now+0.2);
   osc.connect(gain);gain.connect(audioCtx.destination);osc.start(now);osc.stop(now+0.25);
 }
-function playClear(lines){if(!audioCtx)return;const now=audioCtx.currentTime;
+function playClear(lines){
+  if(!audioCtx)return;
+  const now=audioCtx.currentTime;
   const osc=audioCtx.createOscillator();const gain=audioCtx.createGain();
   osc.type='square';osc.frequency.setValueAtTime(400+lines*80,now);
   gain.gain.setValueAtTime(0.1,now);gain.gain.exponentialRampToValueAtTime(0.001,now+0.3);
@@ -291,4 +303,18 @@ function playClear(lines){if(!audioCtx)return;const now=audioCtx.currentTime;
 function playMusic(){
   if(bgMusic)return;
   const audio=document.createElement('audio');
-  audio.src='https://cdn.pixabay.com/download/audio/2022/03/15/audio_6b548fe74
+  audio.src='https://cdn.pixabay.com/download/audio/2022/03/15/audio_6b548fe74f.mp3?filename=retro-game-music-10302.mp3';
+  audio.loop=true;audio.volume=0.3;
+  document.body.appendChild(audio);
+  bgMusic=audio;
+  audio.play().catch(()=>{});
+}
+document.getElementById('btn-sound').onclick=()=>{
+  if(bgMusic){
+    if(bgMusic.paused){bgMusic.play();document.getElementById('btn-sound').innerText='🔊 Musik';}
+    else{bgMusic.pause();document.getElementById('btn-sound').innerText='🔇 Musik';}
+  }else playMusic();
+};
+</script>
+</body>
+</html>
