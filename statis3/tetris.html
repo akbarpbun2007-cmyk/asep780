@@ -1,231 +1,451 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Tetris Neo Blast</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tetris Neo Blast — 1 Menit</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-body{
-  margin:0;padding:0;
-  background:radial-gradient(circle at center,#0a0024 0%,#000 100%);
-  font-family:'Segoe UI',sans-serif;
-  color:#fff;overflow:hidden;
-}
-#game{
-  display:flex;justify-content:center;align-items:flex-start;
-  height:100vh;gap:30px;padding-top:20px;
-}
-canvas{background:#111;border:2px solid #0ff;box-shadow:0 0 15px #0ff;border-radius:6px;}
-#panel{
-  width:150px;text-align:center;
-}
-h1{margin:0 0 10px;color:#0ff;text-shadow:0 0 10px #0ff;}
-.stat{margin:8px 0;}
-.btn{
-  margin-top:12px;padding:8px 16px;background:#0ff;color:#000;
-  border:none;border-radius:8px;font-weight:bold;cursor:pointer;
-  box-shadow:0 0 10px #0ff;
-}
-.btn:hover{background:#0ef;}
-#overlay{
-  position:fixed;top:0;left:0;width:100%;height:100%;
-  background:rgba(0,0,0,0.8);display:flex;flex-direction:column;
-  justify-content:center;align-items:center;z-index:10;color:#fff;
-  text-align:center;
-}
-.hidden{display:none;}
+  :root{
+    --cell:28px; --cols:10; --rows:20;
+    --bg-1:#050814; --bg-2:#071733;
+    --neon-1:#00eaff; --neon-2:#a000ff; --accent:#ffd166;
+  }
+  html,body{height:100%;margin:0;font-family:'Inter',system-ui,Arial;background:radial-gradient(1200px 600px at 10% 10%, #071124 0%, #020214 40%, #00060a 100%); color:#e6eef8; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;}
+  .wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding:18px}
+  .board{display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start;max-width:1100px;width:100%}
+  .game{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); padding:14px; border-radius:14px; box-shadow:0 10px 40px rgba(0,0,0,0.6); border:1px solid rgba(0,0,0,0.3); position:relative; overflow:hidden}
+  h1{margin:0;font-size:18px;letter-spacing:0.6px;color:var(--neon-1);text-shadow:0 0 8px rgba(0,234,255,0.12)}
+  .meta{display:flex;gap:12px;align-items:center;color:#9fc6ff;font-size:13px}
+  canvas#tetris{display:block;border-radius:10px;background:linear-gradient(180deg,#001022,#001428); box-shadow: inset 0 0 30px rgba(0,234,255,0.03), 0 6px 40px rgba(0,0,0,0.6); border:3px solid rgba(0,234,255,0.06)}
+  .overlay{position:absolute;left:14px;top:14px;width:calc(100% - 28px);height:calc(100% - 28px);display:flex;align-items:center;justify-content:center;pointer-events:none}
+  .overlay .box{pointer-events:auto;background:linear-gradient(180deg, rgba(3,6,12,0.9), rgba(6,10,20,0.85)); border-radius:10px;padding:18px;border:1px solid rgba(255,255,255,0.04); text-align:center; color:#dff5ff; box-shadow:0 8px 30px rgba(0,0,0,0.6)}
+  .overlay h2{margin:0 0 6px;color:var(--neon-2)}
+  .side{width:320px}
+  .panel{background:linear-gradient(180deg, rgba(2,8,24,0.7), rgba(4,14,34,0.7)); padding:12px; border-radius:10px; margin-bottom:12px; border:1px solid rgba(255,255,255,0.03); color:#cfe8ff}
+  .small{font-size:13px;color:#9fc6ff}
+  .controls{display:flex;gap:8px;flex-wrap:wrap; margin-top:8px}
+  .btn{background:linear-gradient(180deg,#07263b,#041827); border:1px solid rgba(255,255,255,0.04); color:#dff0ff; padding:10px 12px; border-radius:8px; cursor:pointer; font-weight:600; transition:transform .08s, background .12s}
+  .btn:active{transform:translateY(1px)}
+  .btn-muted{background:linear-gradient(180deg,#2b2b2b,#1a1a1a); color:#9fb9d6}
+  .next-canvas{display:block;width:112px;height:112px;border-radius:10px;background:linear-gradient(180deg,#041024,#021018); border:2px solid rgba(255,255,255,0.03); margin-top:8px}
+  .stats-row{display:flex;justify-content:space-between;gap:8px}
+  footer{font-size:12px;color:#8fb4d9;margin-top:6px;text-align:center}
+  /* particle layer */
+  #particles{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;mix-blend-mode:screen}
+  @media (max-width:820px){
+    .board{grid-template-columns:1fr; gap:14px}
+    .side{width:100%}
+  }
 </style>
 </head>
-<body>
-<div id="overlay">
-  <h1>TETRIS NEO BLAST</h1>
-  <p>Klik “Mulai” untuk memulai permainan.<br>Gunakan tombol panah dan spasi.</p>
-  <button class="btn" onclick="startGame()">Mulai</button>
-</div>
+<body tabindex="0">
+  <div class="wrap">
+    <div class="board">
+      <div class="game" id="game-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+          <div>
+            <h1>Tetris Neo Blast</h1>
+            <div class="meta">Mainkan dengan keyboard atau tombol / sentuh</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button id="btn-start" class="btn">Mulai</button>
+            <button id="btn-mute" class="btn btn-muted">🔊 Musik</button>
+          </div>
+        </div>
 
-<div id="game">
-  <canvas id="board" width="240" height="480"></canvas>
-  <div id="panel">
-    <h1>NEO</h1>
-    <div class="stat">Skor<br><span id="score">0</span></div>
-    <div class="stat">Baris<br><span id="lines">0</span></div>
-    <div class="stat">Level<br><span id="level">1</span></div>
-    <div class="stat">High Score<br><span id="highscore">0</span></div>
-    <div class="stat">Waktu<br><span id="timer">60</span></div>
-    <button class="btn" onclick="togglePause()">⏯ Pause</button><br>
-    <button class="btn" onclick="restartGame()">🔄 Restart</button>
+        <canvas id="tetris" width="280" height="560"></canvas>
+        <canvas id="particles"></canvas>
+
+        <div id="overlay" class="overlay" style="display:none">
+          <div class="box">
+            <h2 id="overlay-title">Game Over</h2>
+            <p id="overlay-msg">Area penuh — permainan selesai.</p>
+            <div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
+              <button id="overlay-restart" class="btn">Restart</button>
+              <button id="overlay-close" class="btn btn-muted">Tutup</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:8px;color:#9fb9d6;font-size:13px">Kontrol: ← → (geser), ↑ (rotate), ↓ (turun), Space (jatuh cepat), P (pause)</div>
+      </div>
+
+      <div class="side">
+        <div class="panel">
+          <div class="stats-row">
+            <div>
+              <div class="small">Skor</div>
+              <div id="score" style="font-size:20px">0</div>
+            </div>
+            <div>
+              <div class="small">Level</div>
+              <div id="level" style="font-size:20px">1</div>
+            </div>
+            <div>
+              <div class="small">Baris</div>
+              <div id="lines" style="font-size:20px">0</div>
+            </div>
+          </div>
+          <div style="margin-top:10px"><div class="small">High Score</div><div id="highscore" style="font-size:18px">0</div></div>
+          <!-- TIMER DISPLAY -->
+          <div style="margin-top:10px">
+            <div class="small">Waktu</div>
+            <div id="timer" style="font-size:20px">60</div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="small">Next</div>
+          <canvas id="next" class="next-canvas" width="112" height="112"></canvas>
+        </div>
+
+        <div class="panel">
+          <div class="controls" style="margin-bottom:8px">
+            <button id="btn-left" class="btn">←</button>
+            <button id="btn-rotate" class="btn">↑</button>
+            <button id="btn-right" class="btn">→</button>
+            <button id="btn-down" class="btn">↓</button>
+            <button id="btn-drop" class="btn">Space</button>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button id="btn-pause" class="btn">Pause</button>
+            <button id="btn-restart" class="btn">Restart</button>
+          </div>
+        </div>
+
+        <footer>
+          <div>Made with ♥ — Tetris Neo Blast</div>
+          <div>(c) 2025 Ekskul Coding SMAN 2 Pangkalan Bun</div>
+        </footer>
+      </div>
+    </div>
   </div>
-</div>
 
 <script>
-const canvas=document.getElementById('board');
-const ctx=canvas.getContext('2d');
-const COLS=10,ROWS=20,BLOCK=24;
-let board=[],current,next,score=0,lines=0,level=1,highscore=0;
-let running=false,paused=false,timerInterval,timeLeft=60;
-const shapes={
-  I:[[1,1,1,1]],
-  O:[[1,1],[1,1]],
-  T:[[0,1,0],[1,1,1]],
-  S:[[0,1,1],[1,1,0]],
-  Z:[[1,1,0],[0,1,1]],
-  J:[[1,0,0],[1,1,1]],
-  L:[[0,0,1],[1,1,1]]
-};
-const colors=['#0ff','#f0f','#ff0','#0f0','#f00','#00f','#fa0'];
-const BGM_URL='https://cdn.pixabay.com/download/audio/2022/03/15/audio_6b548fe74f.mp3?filename=retro-game-music-10302.mp3';
-let bgmAudio=null;
+/* ===========================
+   TETRIS NEO BLAST - single file
+   + 60s timer (when 0 => game ends)
+   =========================== */
 
-function createPiece(type){
-  return {shape:shapes[type],color:colors[Object.keys(shapes).indexOf(type)],x:3,y:0};
-}
-function resetBoard(){
-  board=Array.from({length:ROWS},()=>Array(COLS).fill(null));
-}
-function drawBlock(x,y,color){
-  ctx.fillStyle=color;
-  ctx.fillRect(x*BLOCK,y*BLOCK,BLOCK-1,BLOCK-1);
-}
-function drawBoard(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
-    if(board[y][x])drawBlock(x,y,board[y][x]);
-  }
-  if(current)for(let y=0;y<current.shape.length;y++)
-    for(let x=0;x<current.shape[y].length;x++)
-      if(current.shape[y][x])drawBlock(current.x+x,current.y+y,current.color);
-}
-function collide(p){
-  for(let y=0;y<p.shape.length;y++)
-    for(let x=0;x<p.shape[y].length;x++)
-      if(p.shape[y][x]){
-        let ny=p.y+y,nx=p.x+x;
-        if(nx<0||nx>=COLS||ny>=ROWS||(ny>=0&&board[ny][nx]))return true;
+const canvas = document.getElementById('tetris');
+const ctx = canvas.getContext('2d');
+const nextCanvas = document.getElementById('next');
+const nctx = nextCanvas.getContext('2d');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlay-title');
+const overlayMsg = document.getElementById('overlay-msg');
+const overlayRestart = document.getElementById('overlay-restart');
+const overlayClose = document.getElementById('overlay-close');
+const particlesCanvas = document.getElementById('particles');
+const pctx = particlesCanvas.getContext('2d');
+
+const scale = 28;
+const COLS = 10, ROWS = 20;
+const STORAGE_KEY = 'tetris_neoblast_v1';
+let score = 0, lines = 0, level = 1, highscore = 0;
+
+const colors = [null, '#00f0f0', '#5b6cff', '#f0a000', '#f5f050', '#00ff88', '#c57eff', '#ff6b6b'];
+const pieces = 'IOTSZJL';
+const shapes = {
+  I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+  O: [[2,2],[2,2]],
+  T: [[0,3,0],[3,3,3],[0,0,0]],
+  S: [[0,4,4],[4,4,0],[0,0,0]],
+  Z: [[5,5,0],[0,5,5],[0,0,0]],
+  J: [[6,0,0],[6,6,6],[0,0,0]],
+  L: [[0,0,7],[7,7,7],[0,0,0]]
+};
+
+function createMatrix(w,h){ const m=[]; while(h--) m.push(new Array(w).fill(0)); return m; }
+let arena = createMatrix(COLS, ROWS);
+
+function drawMatrix(matrix, offset, context, cellSize, withGlow=true){
+  for(let y=0;y<matrix.length;y++){
+    for(let x=0;x<matrix[y].length;x++){
+      const val = matrix[y][x];
+      if(val){
+        if(withGlow){ context.shadowColor = colors[val]; context.shadowBlur = 10; } else context.shadowBlur = 0;
+        context.fillStyle = colors[val];
+        context.fillRect((x+offset.x)*cellSize, (y+offset.y)*cellSize, cellSize-1, cellSize-1);
+        context.strokeStyle = 'rgba(0,0,0,0.2)';
+        context.strokeRect((x+offset.x)*cellSize, (y+offset.y)*cellSize, cellSize-1, cellSize-1);
+        context.shadowBlur = 0;
       }
-  return false;
-}
-function merge(){
-  for(let y=0;y<current.shape.length;y++)
-    for(let x=0;x<current.shape[y].length;x++)
-      if(current.shape[y][x]){
-        let ny=current.y+y,nx=current.x+x;
-        if(ny>=0)board[ny][nx]=current.color;
-      }
-}
-function rotate(matrix){return matrix[0].map((_,i)=>matrix.map(r=>r[i]).reverse());}
-function drop(){
-  current.y++;
-  if(collide(current)){
-    current.y--;
-    merge();
-    lineClear();
-    nextPiece();
-    if(collide(current)) gameOver();
-  }
-}
-function lineClear(){
-  let rowsCleared=0;
-  for(let y=ROWS-1;y>=0;y--){
-    if(board[y].every(v=>v)){
-      board.splice(y,1);
-      board.unshift(Array(COLS).fill(null));
-      rowsCleared++;y++;
     }
   }
-  if(rowsCleared>0){
-    score+=rowsCleared*100;
-    lines+=rowsCleared;
-    level=1+Math.floor(lines/10);
-    updateStats();
+}
+
+function createPiece(t){ return shapes[t].map(r=>r.slice()); }
+const player = { pos:{x:0,y:0}, matrix:null };
+let nextPiece = { matrix: createPiece(pieces[Math.floor(Math.random()*pieces.length)]) };
+
+function collide(arenaRef, piece){
+  const m = piece.matrix;
+  for(let y=0;y<m.length;y++){
+    for(let x=0;x<m[y].length;x++){
+      if(m[y][x]){
+        const ay = arenaRef[y + piece.pos.y];
+        if(!ay || ay[x + piece.pos.x] !== 0) return true;
+      }
+    }
   }
+  return false;
 }
-function nextPiece(){
-  current=next||randomPiece();
-  next=randomPiece();
+
+function merge(arenaRef, piece){
+  piece.matrix.forEach((row,y)=>{ row.forEach((v,x)=>{ if(v) arenaRef[y + piece.pos.y][x + piece.pos.x] = v; }); });
+  playLock();
 }
-function randomPiece(){
-  const keys=Object.keys(shapes);
-  return createPiece(keys[Math.floor(Math.random()*keys.length)]);
+
+function rotate(matrix, dir){
+  for(let y=0;y<matrix.length;y++) for(let x=0;x<y;x++) [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
+  if(dir>0) matrix.forEach(r=>r.reverse()); else matrix.reverse();
 }
-function updateStats(){
-  document.getElementById('score').textContent=score;
-  document.getElementById('lines').textContent=lines;
-  document.getElementById('level').textContent=level;
-  document.getElementById('highscore').textContent=highscore;
-}
-function gameOver(){
-  running=false;
-  clearInterval(timerInterval);
-  if(score>highscore){highscore=score;localStorage.setItem('neo_high',highscore);}
-  showOverlay('Permainan Berakhir','Skor: '+score);
-  bgmAudio?.pause();
-}
-function showOverlay(title,msg){
-  const ov=document.getElementById('overlay');
-  ov.innerHTML=`<h1>${title}</h1><p>${msg}</p><button class="btn" onclick="restartGame()">Main Lagi</button>`;
-  ov.classList.remove('hidden');
-}
-function hideOverlay(){document.getElementById('overlay').classList.add('hidden');}
+
+/* TIMER */
+let timeLeft = 60; // seconds
+let timerInterval = null;
 function startTimer(){
   clearInterval(timerInterval);
-  timeLeft=60;
-  document.getElementById('timer').textContent=timeLeft;
-  timerInterval=setInterval(()=>{
-    if(!running||paused)return;
+  timeLeft = 60;
+  document.getElementById('timer').innerText = timeLeft;
+  timerInterval = setInterval(()=>{
+    if(!running) return;
+    if(paused) return;
     timeLeft--;
-    document.getElementById('timer').textContent=timeLeft;
-    if(timeLeft<=0){clearInterval(timerInterval);timeUp();}
-  },1000);
+    document.getElementById('timer').innerText = timeLeft;
+    if(timeLeft <= 0){
+      clearInterval(timerInterval);
+      endGameTimeUp();
+    }
+  }, 1000);
 }
-function timeUp(){
-  running=false;
-  bgmAudio?.pause();
-  showOverlay('Waktu Habis!','Skor Akhir: '+score);
+function endGameTimeUp(){
+  stopGame();
+  if(bgmAudio) bgmAudio.pause();
+  showOverlay('Waktu Habis!', 'Permainan berakhir karena waktu telah habis.<br>Skor akhir: ' + score);
 }
-function loop(){
-  if(!running)return;
-  if(!paused){
-    drop();drawBoard();
+
+/* GAME STATE */
+function spawnNext(){
+  player.matrix = nextPiece.matrix.map(r=>r.slice());
+  player.pos.y = 0;
+  player.pos.x = Math.floor((COLS - player.matrix[0].length)/2);
+  nextPiece.matrix = createPiece(pieces[Math.floor(Math.random()*pieces.length)]);
+  if(collide(arena, player)){
+    stopGame();
+    showOverlay('Game Over', 'Area penuh — permainan selesai. Tekan Restart untuk bermain lagi.');
   }
-  setTimeout(()=>requestAnimationFrame(loop),500-((level-1)*20));
 }
+
+function sweepLines(){
+  let rowCount = 0;
+  outer: for(let y = arena.length -1; y>=0; y--){
+    for(let x=0;x<arena[y].length;x++) if(arena[y][x] === 0) continue outer;
+    const removed = arena.splice(y,1)[0].slice();
+    arena.unshift(new Array(COLS).fill(0));
+    createClearParticles(y, removed);
+    y++;
+    rowCount++;
+  }
+  if(rowCount>0){
+    const points = [0,40,100,300,1200];
+    score += points[rowCount] * level;
+    lines += rowCount;
+    level = Math.floor(lines/10) + 1;
+    updateStats();
+    playLineClearSound(rowCount);
+  }
+  return rowCount;
+}
+
+/* STATS & STORAGE */
+function loadHighscore(){ try{ const v = parseInt(localStorage.getItem(STORAGE_KEY)||'0',10); if(!isNaN(v)) highscore=v; } catch(e){ highscore=0; } document.getElementById('highscore').innerText = highscore; }
+function saveHighscore(){ try{ localStorage.setItem(STORAGE_KEY, String(highscore)); } catch(e){} document.getElementById('highscore').innerText = highscore; }
+function updateStats(){
+  document.getElementById('score').innerText = score;
+  document.getElementById('level').innerText = level;
+  document.getElementById('lines').innerText = lines;
+  if(score > highscore){ highscore = score; saveHighscore(); }
+}
+
+/* LOOP */
+let dropCounter = 0;
+let dropInterval = 1000;
+let lastTime = 0;
+let paused = false;
+let running = false;
+
+function update(time = 0){
+  if(!running) return;
+  if(paused){ lastTime = time; requestAnimationFrame(update); return; }
+  const delta = time - lastTime;
+  lastTime = time;
+  dropCounter += delta;
+  dropInterval = Math.max(70, 1000 - (level-1)*70);
+  if(dropCounter > dropInterval){
+    player.pos.y++;
+    if(collide(arena, player)){
+      player.pos.y--;
+      merge(arena, player);
+      const cleared = sweepLines();
+      spawnNext();
+    }
+    dropCounter = 0;
+  }
+  draw();
+  updateParticles(delta);
+  requestAnimationFrame(update);
+}
+
+/* DRAW */
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle = 'rgba(255,255,255,0.015)';
+  for(let x=0;x<COLS;x++){
+    for(let y=0;y<ROWS;y++){
+      ctx.fillRect(x*scale+scale-1,y*scale+scale-1,0.6,0.6);
+    }
+  }
+  drawMatrix(arena, {x:0,y:0}, ctx, scale);
+  if(player.matrix) drawMatrix(player.matrix, player.pos, ctx, scale);
+  nctx.clearRect(0,0,nextCanvas.width,nextCanvas.height);
+  const nextMatrix = nextPiece.matrix;
+  const nx = Math.floor((4 - nextMatrix[0].length)/2);
+  drawMatrix(nextMatrix, {x:nx,y:1}, nctx, 28, true);
+}
+
+/* GAME CONTROL */
 function startGame(){
-  highscore=parseInt(localStorage.getItem('neo_high')||'0');
-  resetBoard();score=0;lines=0;level=1;
-  current=randomPiece();next=randomPiece();
-  running=true;paused=false;
-  hideOverlay();updateStats();drawBoard();
-  playMusic();startTimer();loop();
+  arena = createMatrix(COLS, ROWS);
+  score = 0; lines = 0; level = 1; dropCounter = 0; lastTime = performance.now(); paused = false;
+  hideOverlay();
+  loadHighscore();
+  spawnNext();
+  updateStats();
+  startTimer(); // <-- start 60s timer
+  if(!running){ running = true; requestAnimationFrame(update); }
 }
-function restartGame(){hideOverlay();startGame();}
-function togglePause(){
-  if(!running)return;
-  paused=!paused;
+function stopGame(){
+  running = false;
+  clearInterval(timerInterval); // stop timer when game stops
 }
-function playMusic(){
-  if(!bgmAudio){
-    bgmAudio=new Audio(BGM_URL);
-    bgmAudio.loop=true;
-    bgmAudio.volume=0.4;
-  }
+
+/* INPUT */
+function ensureAudio(){ if(!audioCtx){ try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ audioCtx = null; } } }
+function keyHandler(e){
+  if(!running) return;
+  ensureAudio();
+  if(e.key === 'ArrowLeft'){ player.pos.x--; if(collide(arena, player)) player.pos.x++; dropCounter=0; }
+  else if(e.key === 'ArrowRight'){ player.pos.x++; if(collide(arena, player)) player.pos.x--; dropCounter=0; }
+  else if(e.key === 'ArrowDown'){ player.pos.y++; if(collide(arena, player)){ player.pos.y--; merge(arena, player); sweepLines(); spawnNext(); } dropCounter=0; }
+  else if(e.key === 'ArrowUp'){ rotate(player.matrix, 1); if(collide(arena, player)) rotate(player.matrix, -1); }
+  else if(e.code === 'Space'){ e.preventDefault(); while(!collide(arena, player)) player.pos.y++; player.pos.y--; merge(arena, player); sweepLines(); spawnNext(); dropCounter=0; }
+  else if(e.key.toLowerCase() === 'p'){ togglePause(); }
+}
+window.addEventListener('keydown', keyHandler);
+
+/* UI buttons */
+document.getElementById('btn-left').addEventListener('click', ()=> keyHandler({key:'ArrowLeft'}));
+document.getElementById('btn-right').addEventListener('click', ()=> keyHandler({key:'ArrowRight'}));
+document.getElementById('btn-rotate').addEventListener('click', ()=> keyHandler({key:'ArrowUp'}));
+document.getElementById('btn-down').addEventListener('click', ()=> keyHandler({key:'ArrowDown'}));
+document.getElementById('btn-drop').addEventListener('click', ()=> keyHandler({code:'Space'}));
+document.getElementById('btn-pause').addEventListener('click', ()=>{ if(!running) return; togglePause(); });
+document.getElementById('btn-restart').addEventListener('click', ()=> startGame());
+document.getElementById('btn-start').addEventListener('click', ()=>{ document.getElementById('btn-start').style.display='none'; startGame(); playBGM(); });
+
+overlayRestart.addEventListener('click', ()=> startGame());
+overlayClose.addEventListener('click', ()=> hideOverlay());
+
+function togglePause(){ paused = !paused; document.getElementById('btn-pause').innerText = paused ? 'Resume' : 'Pause'; }
+function showOverlay(title, msg, showRestart=true){ overlayTitle.innerText = title; overlayMsg.innerHTML = msg; overlay.style.display = 'flex'; overlayRestart.style.display = showRestart ? 'inline-block' : 'none'; }
+function hideOverlay(){ overlay.style.display = 'none'; }
+
+/* AUDIO */
+let audioCtx = null;
+function playLock(){ if(!audioCtx) return; const now = audioCtx.currentTime; const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type='sine'; o.frequency.setValueAtTime(220, now); g.gain.setValueAtTime(0.08, now); g.gain.exponentialRampToValueAtTime(0.001, now+0.22); o.connect(g); g.connect(audioCtx.destination); o.start(now); o.stop(now+0.25); }
+function playLineClearSound(linesCleared){ if(!audioCtx) return; const now = audioCtx.currentTime; const base = 300 + (linesCleared-1)*150; const o = audioCtx.createOscillator(); const g = audioCtx.createGain(); o.type='square'; o.frequency.setValueAtTime(base, now); g.gain.setValueAtTime(0.12, now); g.gain.exponentialRampToValueAtTime(0.001, now+0.35); o.connect(g); g.connect(audioCtx.destination); o.start(now); o.stop(now+0.36); }
+
+let bgmAudio = null;
+const BGM_URL = 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_6b548fe74f.mp3?filename=retro-game-music-10302.mp3';
+function playBGM(){
+  if(bgmAudio) return;
+  bgmAudio = document.createElement('audio');
+  bgmAudio.src = BGM_URL;
+  bgmAudio.loop = true;
+  bgmAudio.volume = 0.28;
+  document.body.appendChild(bgmAudio);
   bgmAudio.play().catch(()=>{});
+  document.getElementById('btn-mute').innerText = '🔊 Musik';
 }
-document.addEventListener('keydown',e=>{
-  if(!running||paused)return;
-  if(e.code==='ArrowLeft'){current.x--;if(collide(current))current.x++;}
-  else if(e.code==='ArrowRight'){current.x++;if(collide(current))current.x--;}
-  else if(e.code==='ArrowDown'){drop();}
-  else if(e.code==='ArrowUp'){
-    const r=rotate(current.shape);
-    const old=current.shape;current.shape=r;
-    if(collide(current))current.shape=old;
-  }else if(e.code==='Space'){
-    while(!collide(current))current.y++;
-    current.y--;merge();lineClear();nextPiece();
-    if(collide(current))gameOver();
-  }else if(e.code==='KeyP'){togglePause();}
-  drawBoard();
+document.getElementById('btn-mute').addEventListener('click', ()=>{
+  if(!bgmAudio){ playBGM(); return; }
+  if(bgmAudio.paused){ bgmAudio.play(); document.getElementById('btn-mute').innerText = '🔊 Musik'; }
+  else { bgmAudio.pause(); document.getElementById('btn-mute').innerText = '🔇 Mati'; }
+});
+window.addEventListener('click', ()=>{ if(!audioCtx){ try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ audioCtx = null; } } }, { once:true });
+
+/* PARTICLES */
+particlesCanvas.width = canvas.width;
+particlesCanvas.height = canvas.height;
+let particles = [];
+function createClearParticles(rowIndex, removedRow){
+  const y = rowIndex * scale + scale/2;
+  for(let x=0;x<COLS;x++){
+    if(removedRow[x] !== 0){
+      const px = x*scale + scale/2 + (Math.random()-0.5)*6;
+      const py = y + (Math.random()-0.5)*6;
+      const col = colors[removedRow[x]] || '#fff';
+      for(let i=0;i<14;i++){
+        particles.push({
+          x: px, y: py,
+          vx: (Math.random()-0.5)*4, vy: (Math.random()-1.8)*4,
+          life: 600 + Math.random()*400, age: 0, col
+        });
+      }
+    }
+  }
+}
+function updateParticles(delta){
+  if(!particles.length){ pctx.clearRect(0,0,particlesCanvas.width, particlesCanvas.height); return; }
+  pctx.clearRect(0,0,particlesCanvas.width, particlesCanvas.height);
+  for(let i = particles.length-1; i>=0; i--){
+    const pr = particles[i];
+    pr.age += delta;
+    if(pr.age >= pr.life){ particles.splice(i,1); continue; }
+    pr.vy += 0.06 * (delta/16);
+    pr.x += pr.vx * (delta/16);
+    pr.y += pr.vy * (delta/16);
+    const alpha = 1 - (pr.age/pr.life);
+    pctx.fillStyle = pr.col; pctx.globalAlpha = alpha * 0.95;
+    pctx.beginPath(); pctx.arc(pr.x, pr.y, 2.0, 0, Math.PI*2); pctx.fill();
+  }
+  pctx.globalAlpha = 1;
+}
+
+/* Responsive & init */
+canvas.width = COLS * scale; canvas.height = ROWS * scale;
+nextCanvas.width = 4 * 28; nextCanvas.height = 4 * 28;
+particlesCanvas.width = canvas.width; particlesCanvas.height = canvas.height;
+loadHighscore(); draw();
+
+/* touch support */
+['btn-left','btn-right','btn-rotate','btn-down','btn-drop'].forEach(id=>{
+  const el = document.getElementById(id);
+  el.addEventListener('touchstart', (ev)=>{ ev.preventDefault(); el.classList.add('active'); if(id==='btn-left') keyHandler({key:'ArrowLeft'}); if(id==='btn-right') keyHandler({key:'ArrowRight'}); if(id==='btn-rotate') keyHandler({key:'ArrowUp'}); if(id==='btn-down') keyHandler({key:'ArrowDown'}); if(id==='btn-drop') keyHandler({code:'Space'}); }, {passive:false});
+  el.addEventListener('touchend', ()=> el.classList.remove('active'));
+});
+
+/* prevent scroll on arrow/space */
+window.addEventListener('keydown', function(e){
+  const blocked = ['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'];
+  if(blocked.includes(e.code || e.key)) e.preventDefault();
 });
 </script>
 </body>
 </html>
+
+    
