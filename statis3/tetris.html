@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tetris Neo Blast</title>
+<style>
+body{
+  margin:0;padding:0;
+  background:radial-gradient(circle at center,#0a0024 0%,#000 100%);
+  font-family:'Segoe UI',sans-serif;
+  color:#fff;overflow:hidden;
+}
+#game{
+  display:flex;justify-content:center;align-items:flex-start;
+  height:100vh;gap:30px;padding-top:20px;
+}
+canvas{background:#111;border:2px solid #0ff;box-shadow:0 0 15px #0ff;border-radius:6px;}
+#panel{
+  width:150px;text-align:center;
+}
+h1{margin:0 0 10px;color:#0ff;text-shadow:0 0 10px #0ff;}
+.stat{margin:8px 0;}
+.btn{
+  margin-top:12px;padding:8px 16px;background:#0ff;color:#000;
+  border:none;border-radius:8px;font-weight:bold;cursor:pointer;
+  box-shadow:0 0 10px #0ff;
+}
+.btn:hover{background:#0ef;}
+#overlay{
+  position:fixed;top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,0.8);display:flex;flex-direction:column;
+  justify-content:center;align-items:center;z-index:10;color:#fff;
+  text-align:center;
+}
+.hidden{display:none;}
+</style>
+</head>
+<body>
+<div id="overlay">
+  <h1>TETRIS NEO BLAST</h1>
+  <p>Klik “Mulai” untuk memulai permainan.<br>Gunakan tombol panah dan spasi.</p>
+  <button class="btn" onclick="startGame()">Mulai</button>
+</div>
+
+<div id="game">
+  <canvas id="board" width="240" height="480"></canvas>
+  <div id="panel">
+    <h1>NEO</h1>
+    <div class="stat">Skor<br><span id="score">0</span></div>
+    <div class="stat">Baris<br><span id="lines">0</span></div>
+    <div class="stat">Level<br><span id="level">1</span></div>
+    <div class="stat">High Score<br><span id="highscore">0</span></div>
+    <div class="stat">Waktu<br><span id="timer">60</span></div>
+    <button class="btn" onclick="togglePause()">⏯ Pause</button><br>
+    <button class="btn" onclick="restartGame()">🔄 Restart</button>
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById('board');
+const ctx=canvas.getContext('2d');
+const COLS=10,ROWS=20,BLOCK=24;
+let board=[],current,next,score=0,lines=0,level=1,highscore=0;
+let running=false,paused=false,timerInterval,timeLeft=60;
+const shapes={
+  I:[[1,1,1,1]],
+  O:[[1,1],[1,1]],
+  T:[[0,1,0],[1,1,1]],
+  S:[[0,1,1],[1,1,0]],
+  Z:[[1,1,0],[0,1,1]],
+  J:[[1,0,0],[1,1,1]],
+  L:[[0,0,1],[1,1,1]]
+};
+const colors=['#0ff','#f0f','#ff0','#0f0','#f00','#00f','#fa0'];
+const BGM_URL='https://cdn.pixabay.com/download/audio/2022/03/15/audio_6b548fe74f.mp3?filename=retro-game-music-10302.mp3';
+let bgmAudio=null;
+
+function createPiece(type){
+  return {shape:shapes[type],color:colors[Object.keys(shapes).indexOf(type)],x:3,y:0};
+}
+function resetBoard(){
+  board=Array.from({length:ROWS},()=>Array(COLS).fill(null));
+}
+function drawBlock(x,y,color){
+  ctx.fillStyle=color;
+  ctx.fillRect(x*BLOCK,y*BLOCK,BLOCK-1,BLOCK-1);
+}
+function drawBoard(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+    if(board[y][x])drawBlock(x,y,board[y][x]);
+  }
+  if(current)for(let y=0;y<current.shape.length;y++)
+    for(let x=0;x<current.shape[y].length;x++)
+      if(current.shape[y][x])drawBlock(current.x+x,current.y+y,current.color);
+}
+function collide(p){
+  for(let y=0;y<p.shape.length;y++)
+    for(let x=0;x<p.shape[y].length;x++)
+      if(p.shape[y][x]){
+        let ny=p.y+y,nx=p.x+x;
+        if(nx<0||nx>=COLS||ny>=ROWS||(ny>=0&&board[ny][nx]))return true;
+      }
+  return false;
+}
+function merge(){
+  for(let y=0;y<current.shape.length;y++)
+    for(let x=0;x<current.shape[y].length;x++)
+      if(current.shape[y][x]){
+        let ny=current.y+y,nx=current.x+x;
+        if(ny>=0)board[ny][nx]=current.color;
+      }
+}
+function rotate(matrix){return matrix[0].map((_,i)=>matrix.map(r=>r[i]).reverse());}
+function drop(){
+  current.y++;
+  if(collide(current)){
+    current.y--;
+    merge();
+    lineClear();
+    nextPiece();
+    if(collide(current)) gameOver();
+  }
+}
+function lineClear(){
+  let rowsCleared=0;
+  for(let y=ROWS-1;y>=0;y--){
+    if(board[y].every(v=>v)){
+      board.splice(y,1);
+      board.unshift(Array(COLS).fill(null));
+      rowsCleared++;y++;
+    }
+  }
+  if(rowsCleared>0){
+    score+=rowsCleared*100;
+    lines+=rowsCleared;
+    level=1+Math.floor(lines/10);
+    updateStats();
+  }
+}
+function nextPiece(){
+  current=next||randomPiece();
+  next=randomPiece();
+}
+function randomPiece(){
+  const keys=Object.keys(shapes);
+  return createPiece(keys[Math.floor(Math.random()*keys.length)]);
+}
+function updateStats(){
+  document.getElementById('score').textContent=score;
+  document.getElementById('lines').textContent=lines;
+  document.getElementById('level').textContent=level;
+  document.getElementById('highscore').textContent=highscore;
+}
+function gameOver(){
+  running=false;
+  clearInterval(timerInterval);
+  if(score>highscore){highscore=score;localStorage.setItem('neo_high',highscore);}
+  showOverlay('Permainan Berakhir','Skor: '+score);
+  bgmAudio?.pause();
+}
+function showOverlay(title,msg){
+  const ov=document.getElementById('overlay');
+  ov.innerHTML=`<h1>${title}</h1><p>${msg}</p><button class="btn" onclick="restartGame()">Main Lagi</button>`;
+  ov.classList.remove('hidden');
+}
+function hideOverlay(){document.getElementById('overlay').classList.add('hidden');}
+function startTimer(){
+  clearInterval(timerInterval);
+  timeLeft=60;
+  document.getElementById('timer').textContent=timeLeft;
+  timerInterval=setInterval(()=>{
+    if(!running||paused)return;
+    timeLeft--;
+    document.getElementById('timer').textContent=timeLeft;
+    if(timeLeft<=0){clearInterval(timerInterval);timeUp();}
+  },1000);
+}
+function timeUp(){
+  running=false;
+  bgmAudio?.pause();
+  showOverlay('Waktu Habis!','Skor Akhir: '+score);
+}
+function loop(){
+  if(!running)return;
+  if(!paused){
+    drop();drawBoard();
+  }
+  setTimeout(()=>requestAnimationFrame(loop),500-((level-1)*20));
+}
+function startGame(){
+  highscore=parseInt(localStorage.getItem('neo_high')||'0');
+  resetBoard();score=0;lines=0;level=1;
+  current=randomPiece();next=randomPiece();
+  running=true;paused=false;
+  hideOverlay();updateStats();drawBoard();
+  playMusic();startTimer();loop();
+}
+function restartGame(){hideOverlay();startGame();}
+function togglePause(){
+  if(!running)return;
+  paused=!paused;
+}
+function playMusic(){
+  if(!bgmAudio){
+    bgmAudio=new Audio(BGM_URL);
+    bgmAudio.loop=true;
+    bgmAudio.volume=0.4;
+  }
+  bgmAudio.play().catch(()=>{});
+}
+document.addEventListener('keydown',e=>{
+  if(!running||paused)return;
+  if(e.code==='ArrowLeft'){current.x--;if(collide(current))current.x++;}
+  else if(e.code==='ArrowRight'){current.x++;if(collide(current))current.x--;}
+  else if(e.code==='ArrowDown'){drop();}
+  else if(e.code==='ArrowUp'){
+    const r=rotate(current.shape);
+    const old=current.shape;current.shape=r;
+    if(collide(current))current.shape=old;
+  }else if(e.code==='Space'){
+    while(!collide(current))current.y++;
+    current.y--;merge();lineClear();nextPiece();
+    if(collide(current))gameOver();
+  }else if(e.code==='KeyP'){togglePause();}
+  drawBoard();
+});
+</script>
+</body>
+</html>
